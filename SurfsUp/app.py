@@ -40,13 +40,13 @@ app = Flask(__name__)
 def welcome():
     """ list all available api routes."""
     return (
-        f"Welcome to Hawaii climate app. <br/>"
+        f"Welcome.<br/>"
         f"Available Route.<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/start/2010-01-01<br/>"
-        f"/api/v1.0/start/2010-01-01/end/2017-08-23"
+        f"/api/v1.0/start<br/>"
+        f"/api/v1.0/start/end"
     )
 
 # this route show date and prcp from measurement table.
@@ -66,7 +66,7 @@ def precipitation():
         date_dict[date] = prcp
         precipitation.append(date_dict)    
     return jsonify(precipitation)
-
+    session.close()
 
 # Return a JSON list of stations from the dataset.
 
@@ -86,7 +86,7 @@ def stations():
     all_stations = list(np.ravel(results))
 
     return jsonify(all_stations)
-
+    session.close()
 
 #Query the dates and temperature observations of the most-active station 
 # for the previous year of data.
@@ -127,31 +127,57 @@ def active_station():
 
     return jsonify(yearly_station_list)
 
-@app.route("/api/v1.0/start/2010-01-01<br/>")
+@app.route("/api/v1.0/<start>")
 def start_json(start):
     session=Session(engine)
 
     #quert data greater >= to start
-    sel = [func.min(measurement.tobs),
-           func.avg(measurement.tobs),
-           func.max(measurement.tobs)
-    ]
+    sel = [func.min(measurement.tobs).label('TMIN'),
+           func.avg(measurement.tobs).label('TAVG'),
+           func.max(measurement.tobs).label('TMAX')]
 
     #filter calculate tmin tavg and tmax
+
     start_json_filter = session.query(*sel).filter(measurement.data >= start).all()
-
-    start_json_list = [
-        {"TMIN": start_json_filter[0][1]},
-        {"TAVG": start_json_filter[0][2]},
-        {"TMAX": start_json_filter[0][3]}
-    ]
-    if start <= '2017-08-23':
-        return jsonify(start_json_list)
-    else:
-        return jsonify("Error: start date not in range, make sure it is before 2017-08-23")
     
+    temp_list= []
+    for i in start_json_filter:
+        temp_dict = {}
+        temp_dict['TMIN'] = i.TMIN
+        temp_dict['TAVG'] = i.TAVG
+        temp_dict['TMAX'] = i.TMAX
+
+        temp_list.append(temp_dict)
+  
+    return jsonify(f"start:{start}", temp_list)
+   
+    
+
+app.route("/api/v1.0/<start>/<end>")
+def start_end_date(start, end):
+    session.Session(engine) 
+    sel = [func.min(measurement.tobs).label('TMIN'),
+           func.avg(measurement.tobs).label('TAVG'),
+           func.max(measurement.tobs).label('TMAX')
+    ]
+
+    start_end_filter = session.query(*sel).\
+        filter(measurement.date.between(start, end)).all()
+    
+    temp_list = []
+    for i in start_end_filter:
+        temp_dict = {}
+        temp_dict['TMIN'] = i.TMIN
+        temp_dict['TAVG'] = i.TAVG
+        temp_dict['TMAX'] = i.TMAX
+
+        temp_list.append(temp_dict)
+    
+    return jsonify(f"start date:{start}", f"End date:{end}", temp_list)
+
+
+
+
     session.close()
-
-
 if __name__ == '__main__':
     app.run(debug=True)
