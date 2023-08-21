@@ -1,6 +1,7 @@
 # Import the dependencies.
 import numpy as np
 import sqlalchemy
+import datetime as dt
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
@@ -87,10 +88,70 @@ def stations():
     return jsonify(all_stations)
 
 
+#Query the dates and temperature observations of the most-active station 
+# for the previous year of data.
 
 
+@app.route('/api/v1.0/tobs')
+def active_station():
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
 
-#close session and app run debug
-session.close()
+    # get the latest date 
+    latest_date = dt.date(2017,8,23)
+    sel = [measurement.date,measurement.tobs]
+
+    # get the yearly date 
+
+    query_yearly = latest_date - dt.timedelta(days=365)
+
+    # query tobs for the yearly most active stations
+    # yearly_station = session.query(*sel).filter(measurement.date >= query_yearly).all()
+
+    yearly_station = session.query(measurement.date, measurement.tobs).filter_by(station="USC00519281").\
+        filter(measurement.date >= query_yearly).all()
+
+    # yearly_station=yearly_station.set_index('tobs')
+    
+    yearly_station_converted = list(np.ravel(yearly_station))
+
+
+    session.close()
+
+    # create a dictionary from row data and  append it to yearly_station_list 
+    
+    yearly_station_list = []
+    for date, tobs in yearly_station_converted:
+        tobs_dict = {"date": date, "tobs": tobs}
+        yearly_station_list.append(tobs_dict)
+
+    return jsonify(yearly_station_list)
+
+@app.route("/api/v1.0/start/2010-01-01<br/>")
+def start_json(start):
+    session=Session(engine)
+
+    #quert data greater >= to start
+    sel = [func.min(measurement.tobs),
+           func.avg(measurement.tobs),
+           func.max(measurement.tobs)
+    ]
+
+    #filter calculate tmin tavg and tmax
+    start_json_filter = session.query(*sel).filter(measurement.data >= start).all()
+
+    start_json_list = [
+        {"TMIN": start_json_filter[0][1]},
+        {"TAVG": start_json_filter[0][2]},
+        {"TMAX": start_json_filter[0][3]}
+    ]
+    if start <= '2017-08-23':
+        return jsonify(start_json_list)
+    else:
+        return jsonify("Error: start date not in range, make sure it is before 2017-08-23")
+    
+    session.close()
+
+
 if __name__ == '__main__':
     app.run(debug=True)
