@@ -126,14 +126,13 @@ def active_station():
 def stats(start):
     # Create our session (link) from Python to the DB
     session=Session(engine)
-    latest_date = dt.date(2016,8,23)
 
     #query result for min avg and max
 
     query_result= session.query(func.min(measurement.tobs),\
                                 func.avg(measurement.tobs),\
                                     func.max(measurement.tobs).\
-                                    filter(measurement.date >= latest_date)).all()
+                                    filter(measurement.date >= start)).all()
     
     session.close()
 
@@ -151,12 +150,12 @@ def stats(start):
 def stats_end(start,end):
     # Create our session (link) from Python to the DB
     session = Session(engine)
-    latest_date = dt.date(2017,8,23)
 
     results = session.query(func.min(measurement.tobs),func.max(measurement.tobs),\
                             func.avg(measurement.tobs))\
-        .filter(measurement.date >= latest_date)\
-        .filter(measurement.date<= latest_date).all()
+        .filter(measurement.date >= start)\
+        .filter(measurement.date<= start).all()
+    
     session.close()
     stats_tobs = []
     for min, avg, max in results:
