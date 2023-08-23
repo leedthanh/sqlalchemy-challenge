@@ -98,14 +98,13 @@ def active_station():
     session = Session(engine)
 
     # get the latest date 
-    latest_date = dt.date(2017,8,23)
+    latest_date = dt.date(2016,8,23)
 
     # get the yearly date 
 
     query_yearly = latest_date - dt.timedelta(days=365)
 
     # query tobs for the yearly most active stations
-    # yearly_station = session.query(*sel).filter(measurement.date >= query_yearly).all()
 
     yearly_station = session.query(measurement.date, measurement.tobs).filter_by(station="USC00519281").\
         filter(measurement.date >= query_yearly).all()
