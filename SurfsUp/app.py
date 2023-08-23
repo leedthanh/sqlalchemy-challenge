@@ -40,7 +40,7 @@ app = Flask(__name__)
 def welcome():
     """ list all available api routes."""
     return (
-        f"Welcome.<br/>"
+        f"Welcome to weather API.<br/>"
         f"Available Route.<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
@@ -99,7 +99,6 @@ def active_station():
 
     # get the latest date 
     latest_date = dt.date(2017,8,23)
-    sel = [measurement.date,measurement.tobs]
 
     # get the yearly date 
 
@@ -111,73 +110,68 @@ def active_station():
     yearly_station = session.query(measurement.date, measurement.tobs).filter_by(station="USC00519281").\
         filter(measurement.date >= query_yearly).all()
 
-    # yearly_station=yearly_station.set_index('tobs')
-    
-    yearly_station_converted = list(np.ravel(yearly_station))
-
-
     session.close()
 
     # create a dictionary from row data and  append it to yearly_station_list 
     
     yearly_station_list = []
-    for date, tobs in yearly_station_converted:
+    for date, tobs in yearly_station:
         tobs_dict = {"date": date, "tobs": tobs}
         yearly_station_list.append(tobs_dict)
 
     return jsonify(yearly_station_list)
 
+
 @app.route("/api/v1.0/<start>")
-def start_json(start):
+def stats(start):
+    # Create our session (link) from Python to the DB
     session=Session(engine)
+    latest_date = dt.date(2016,8,23)
 
-    #quert data greater >= to start
-    sel = [func.min(measurement.tobs).label('TMIN'),
-           func.avg(measurement.tobs).label('TAVG'),
-           func.max(measurement.tobs).label('TMAX')]
+    #query result for min avg and max
 
-    #filter calculate tmin tavg and tmax
-
-    start_json_filter = session.query(*sel).filter(measurement.data >= start).all()
+    query_result= session.query(func.min(measurement.tobs),\
+                                func.avg(measurement.tobs),\
+                                    func.max(measurement.tobs).\
+                                    filter(measurement.date >= latest_date)).all()
     
-    temp_list= []
-    for i in start_json_filter:
-        temp_dict = {}
-        temp_dict['TMIN'] = i.TMIN
-        temp_dict['TAVG'] = i.TAVG
-        temp_dict['TMAX'] = i.TMAX
-
-        temp_list.append(temp_dict)
-  
-    return jsonify(f"start:{start}", temp_list)
-   
-    
-
-app.route("/api/v1.0/<start>/<end>")
-def start_end_date(start, end):
-    session.Session(engine) 
-    sel = [func.min(measurement.tobs).label('TMIN'),
-           func.avg(measurement.tobs).label('TAVG'),
-           func.max(measurement.tobs).label('TMAX')
-    ]
-
-    start_end_filter = session.query(*sel).\
-        filter(measurement.date.between(start, end)).all()
-    
-    temp_list = []
-    for i in start_end_filter:
-        temp_dict = {}
-        temp_dict['TMIN'] = i.TMIN
-        temp_dict['TAVG'] = i.TAVG
-        temp_dict['TMAX'] = i.TMAX
-
-        temp_list.append(temp_dict)
-    
-    return jsonify(f"start date:{start}", f"End date:{end}", temp_list)
-
-
-
-
     session.close()
+
+    result_list =[]
+
+    for min, avg, max in query_result:
+        tobs_dict= {}
+        tobs_dict["TMIN"] = min
+        tobs_dict["TAVG"] = avg
+        tobs_dict["TMAX"] = max
+        result_list.append(tobs_dict)
+    return jsonify(result_list)
+
+@app.route("/api/v1.0/<start>/<end>")
+def stats_end(start,end):
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+    latest_date = dt.date(2017,8,23)
+
+    results = session.query(func.min(measurement.tobs),func.max(measurement.tobs),\
+                            func.avg(measurement.tobs))\
+        .filter(measurement.date >= latest_date)\
+        .filter(measurement.date<= latest_date).all()
+    session.close()
+    stats_tobs = []
+    for min, avg, max in results:
+        tobs_dict = {}
+        tobs_dict["TMIN"] = min
+        tobs_dict["TAVG"] = avg
+        tobs_dict["TMAX"] = max
+
+        stats_tobs.append(tobs_dict)
+
+    return jsonify(f"Start date:{start}",f"End date:{end}",stats_tobs)
+
+
+
+
+session.close()
 if __name__ == '__main__':
     app.run(debug=True)
